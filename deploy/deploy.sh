@@ -25,11 +25,28 @@ if [ ! -s "$HOME/.nvm/nvm.sh" ]; then
   curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.6/install.sh | bash
 fi
 
-# load nvm
-export NVM_DIR="$HOME/.nvm"
+# Determine the real user (handle running via sudo)
+TARGET_USER="${SUDO_USER:-$(whoami)}"
+USER_HOME="$(eval echo ~${TARGET_USER})"
+
+# load or install nvm into the target user's home
+export NVM_DIR="$USER_HOME/.nvm"
 # shellcheck source=/dev/null
-[ -s "$NVM_DIR/nvm.sh" ] && \.
-"$NVM_DIR/nvm.sh"
+if [ -s "$NVM_DIR/nvm.sh" ]; then
+  # source nvm so we can use it in this script
+  . "$NVM_DIR/nvm.sh"
+else
+  echo "nvm not found in $NVM_DIR — installing nvm for user $TARGET_USER"
+  # install nvm as the target user so it lands in their home
+  sudo -u "$TARGET_USER" bash -lc "curl -fsSL https://raw.githubusercontent.com/nvm-sh/nvm/v0.39.6/install.sh | bash"
+  # source after install (install creates nvm.sh in the user's home)
+  if [ -s "$NVM_DIR/nvm.sh" ]; then
+    . "$NVM_DIR/nvm.sh"
+  else
+    echo "Failed to install or find nvm at $NVM_DIR/nvm.sh" >&2
+    exit 1
+  fi
+fi
 
 # 3) Install Node
 echo "Installing Node $NODE_VERSION (via nvm)..."
